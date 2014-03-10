@@ -1,0 +1,14 @@
+++++++++++++
+ HowTo-git
+++++++++++++
+
+++++ user ++++
+git clone https://github.com/bloxwork/bloxpicar.git
+git config user.name "yourname"
+optional:git config user.email "me@here.com"
+git remote add origin https://github.com/bloxwork/bloxpicar.git
+git remote set-url origin https://yourusername@github.com/bloxwork/bloxpicar.git
+
+++++ create new ++++
+git init
+++ continue with the user section
