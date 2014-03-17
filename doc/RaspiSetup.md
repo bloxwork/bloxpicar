@@ -45,3 +45,9 @@ Set the name for your Pi, you need to edit the file /etc/hostname and /etc/hosts
 #### dhcp for wlan
 ##### install dhcpd
 ##### config dhcpd
+
+## WiringPi
+pacman -S wiringpi
+
+## Debugging
+pacman -S gdb
