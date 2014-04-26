@@ -1,36 +1,36 @@
 /**
-   \file
-            bloxpicar.c
-   \brief
-            Mainfile for the bloxpicar
+ \file
+ bloxpicar.c
+ \brief
+ Mainfile for the bloxpicar
 
-   \par Description:
+ \par Description:
 
-   \par Module-History (last 10 changes):
-   \verbatim
-    Date            Author              Reason
-    Mar 12, 2014    Alexander Block     - Creation
+ \par Module-History (last 10 changes):
+ \verbatim
+ Date            Author              Reason
+ Mar 12, 2014    Alexander Block     - Creation
 
-   \endverbatim
+ \endverbatim
 
-   \par Copyright Notice:
-   \verbatim
-    Copyright (C) 2013  Alexander Block
+ \par Copyright Notice:
+ \verbatim
+ Copyright (C) 2013  Alexander Block
 
-    This program is free software; you can redistribute it and/or
-    modify it under the terms of the GNU General Public License
-    as published by the Free Software Foundation; either version 2
-    of the License, or (at your option) any later version.
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License
+ as published by the Free Software Foundation; either version 2
+ of the License, or (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-   \endverbatim
+ You should have received a copy of the GNU General Public License
+ along with this program; if not, write to the Free Software
+ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+ \endverbatim
  */
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -43,12 +43,23 @@
 #include <sys/types.h>
 #include <time.h>
 
-int main(int argc, char *argv[])
+typedef struct rxmsg_s_
+{
+    int len;
+    int version;
+    int speed;
+    int direction;
+} rxmsg_s;
+
+int
+main( int argc, char *argv[] )
 {
     int listenfd = 0, connfd = 0;
     struct sockaddr_in serv_addr;
 
     char sendBuff[1025];
+    rxmsg_s readBuff;
+    int readlen = 0;
     time_t ticks;
 
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -59,19 +70,37 @@ int main(int argc, char *argv[])
     serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     serv_addr.sin_port = htons(5000);
 
-    bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+    bind(listenfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
 
     listen(listenfd, 10);
 
-    while(1)
+    while (1)
     {
-        connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
+        connfd = accept(listenfd, (struct sockaddr*) NULL, NULL );
 
-        ticks = time(NULL);
+        printf("accepted client");
+        ticks = time(NULL );
         snprintf(sendBuff, sizeof(sendBuff), "%.24s\r\n", ctime(&ticks));
         write(connfd, sendBuff, strlen(sendBuff));
 
+        while (readlen >= 0)
+        {
+            readlen = read(connfd, &readBuff, sizeof(readBuff));
+            if (readlen > 0)
+            {
+                printf("rx len:%i version:%i speed:%i direction:%i\n",
+                        readBuff.len, readBuff.version, readBuff.speed,
+                        readBuff.direction);
+                write(connfd, &readBuff, readlen);
+            }
+
+            if(readlen < 0)
+            {
+                printf("read error: %i\n", readlen);
+            }
+        }
         close(connfd);
         sleep(1);
-     }
+    }
 }
+
