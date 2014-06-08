@@ -42,6 +42,18 @@
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
+#include <wiringPi.h>
+
+#define BLOX_CAR_VERSION "0.0.1"
+#define PWM_RANGE       100
+#define H_BRIDGE_USE_SW_PWM 1
+#if H_BRIDGE_USE_SW_PWM
+    #define H_BRIDGE_ENABLE_GPIO 4
+#else
+    #define H_BRIDGE_ENABLE_GPIO 1
+#endif
+#define H_BRIDGE_IN1_FORWARD 2
+#define H_BRIDGE_IN2_REVERSE 3
 
 typedef struct rxmsg_s_
 {
@@ -51,8 +63,56 @@ typedef struct rxmsg_s_
     int direction;
 } rxmsg_s;
 
+static void msSleep(int dwSleepMS);
+/**
+ * setSpeed
+ * @param speed: -100 ... 100 ( minus = reverse )
+ */
+static void setSpeed( signed int speed );
+
+
+static void msSleep(int dwSleepMS) {
+    struct timespec sTimeSpec;
+
+    sTimeSpec.tv_sec = (time_t) (dwSleepMS / 1000);
+    sTimeSpec.tv_nsec = (time_t) ((dwSleepMS % 1000) * 1000 * 1000);
+
+    (void) nanosleep(&sTimeSpec, NULL );
+}
 int
 main( int argc, char *argv[] )
+{
+    int i;
+    printf("BloxCar: V%s %s %s\n", BLOX_CAR_VERSION, __DATE__, __TIME__);
+
+
+    //Setup the wiring PI Lib
+    wiringPiSetup();
+#if H_BRIDGE_USE_SW_PWM
+    softPwmCreate (H_BRIDGE_ENABLE_GPIO, 0, PWM_RANGE) ;
+#else
+    pinMode(H_BRIDGE_ENABLE_GPIO, PWM_OUTPUT);
+#endif
+    pinMode(H_BRIDGE_IN1_FORWARD, OUTPUT);
+    pinMode(H_BRIDGE_IN2_REVERSE, OUTPUT);
+
+#if 0
+    digitalWrite(H_BRIDGE_IN1_FORWARD, LOW) ;
+    digitalWrite(H_BRIDGE_IN2_REVERSE, HIGH) ;
+
+//HW PWM    for(  i=350; i<1024;i++)
+        for(  i=0; i<PWM_RANGE;i++)
+    {
+        softPwmWrite (4, i) ;
+        pwmWrite (1, i);
+        msSleep(80);
+        printf("i:%i\n",i);
+    }
+#endif
+    return 0;
+}
+
+void socket_communication(void)
 {
     int listenfd = 0, connfd = 0;
     struct sockaddr_in serv_addr;
@@ -91,6 +151,7 @@ main( int argc, char *argv[] )
                 printf("rx len:%i version:%i speed:%i direction:%i\n",
                         readBuff.len, readBuff.version, readBuff.speed,
                         readBuff.direction);
+                setSpeed( readBuff.speed );
                 write(connfd, &readBuff, readlen);
             }
 
@@ -104,3 +165,35 @@ main( int argc, char *argv[] )
     }
 }
 
+static void setSpeed( signed int speed )
+{
+    static signed int iCurrSpeed = 0;
+
+    if((speed >= ( PWM_RANGE * -1))&&(speed <= PWM_RANGE))
+    {
+        if( iCurrSpeed != speed )
+        {
+            if( ( iCurrSpeed < 0 ) && ( speed > 0 ) )
+            {
+                digitalWrite(H_BRIDGE_IN2_REVERSE, HIGH) ;
+                digitalWrite(H_BRIDGE_IN1_FORWARD, LOW) ;
+            }
+            else if( ( iCurrSpeed > 0 ) && ( speed < 0 ) )
+            {
+                digitalWrite(H_BRIDGE_IN2_REVERSE, LOW) ;
+                digitalWrite(H_BRIDGE_IN1_FORWARD, HIGH) ;
+            }
+            else if ( 0 == speed )
+            {
+                digitalWrite(H_BRIDGE_IN2_REVERSE, LOW) ;
+                digitalWrite(H_BRIDGE_IN1_FORWARD, LOW) ;
+            }
+    #if H_BRIDGE_USE_SW_PWM
+            softPwmWrite (H_BRIDGE_ENABLE_GPIO, speed<0?speed*-1:speed) ;
+    #else
+            pwmWrite (H_BRIDGE_ENABLE_GPIO, speed);
+    #endif
+            iCurrSpeed = speed;
+        }
+    }
+}

@@ -1,4 +1,3 @@
-ACLOCAL_AMFLAGS = -I m4
 bin_PROGRAMS=bloxpicar
 bloxpicar_SOURCES=src/bloxpicar.c 
 

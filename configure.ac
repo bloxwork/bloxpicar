@@ -3,9 +3,9 @@
 
 AC_PREREQ([2.65])
 AC_INIT([PreInit], [1.0], [aleblo@web.de])
-AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign subdir-objects])
 #AC_CONFIG_SRCDIR([src/raspi-mpd.c])
-AM_INIT_AUTOMAKE([foreign])
+#AM_INIT_AUTOMAKE([foreign])
 
 AC_CONFIG_MACRO_DIR([m4])
 

@@ -9,6 +9,8 @@ optional:git config user.email "me@here.com"
 git remote add origin https://github.com/bloxwork/bloxpicar.git
 git remote set-url origin https://yourusername@github.com/bloxwork/bloxpicar.git
 
+git push origin master
+
 ++++ create new ++++
 git init
 git config user.name "yourname"
