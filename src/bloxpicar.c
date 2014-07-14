@@ -69,6 +69,7 @@ static void msSleep(int dwSleepMS);
  * @param speed: -100 ... 100 ( minus = reverse )
  */
 static void setSpeed( signed int speed );
+static void socket_communication(void);
 
 
 static void msSleep(int dwSleepMS) {
@@ -96,6 +97,8 @@ main( int argc, char *argv[] )
     pinMode(H_BRIDGE_IN1_FORWARD, OUTPUT);
     pinMode(H_BRIDGE_IN2_REVERSE, OUTPUT);
 
+    socket_communication();
+
 #if 0
     digitalWrite(H_BRIDGE_IN1_FORWARD, LOW) ;
     digitalWrite(H_BRIDGE_IN2_REVERSE, HIGH) ;
@@ -112,7 +115,7 @@ main( int argc, char *argv[] )
     return 0;
 }
 
-void socket_communication(void)
+static void socket_communication(void)
 {
     int listenfd = 0, connfd = 0;
     struct sockaddr_in serv_addr;
@@ -145,7 +148,7 @@ void socket_communication(void)
 
         while (readlen >= 0)
         {
-            readlen = read(connfd, &readBuff, sizeof(readBuff));
+            readlen = recv(connfd, &readBuff, sizeof(readBuff),0);
             if (readlen > 0)
             {
                 printf("rx len:%i version:%i speed:%i direction:%i\n",
@@ -155,9 +158,11 @@ void socket_communication(void)
                 write(connfd, &readBuff, readlen);
             }
 
-            if(readlen < 0)
+            if(readlen <= 0)
             {
                 printf("read error: %i\n", readlen);
+                printf("Socket recv()! %s\n", strerror(errno));
+                break;
             }
         }
         close(connfd);
@@ -169,16 +174,18 @@ static void setSpeed( signed int speed )
 {
     static signed int iCurrSpeed = 0;
 
+    printf("setSpeed: current:%i new:%i\n", iCurrSpeed, speed);
+
     if((speed >= ( PWM_RANGE * -1))&&(speed <= PWM_RANGE))
     {
         if( iCurrSpeed != speed )
         {
-            if( ( iCurrSpeed < 0 ) && ( speed > 0 ) )
+            if( ( iCurrSpeed <= 0 ) && ( speed > 0 ) )
             {
                 digitalWrite(H_BRIDGE_IN2_REVERSE, HIGH) ;
                 digitalWrite(H_BRIDGE_IN1_FORWARD, LOW) ;
             }
-            else if( ( iCurrSpeed > 0 ) && ( speed < 0 ) )
+            else if( ( iCurrSpeed >= 0 ) && ( speed < 0 ) )
             {
                 digitalWrite(H_BRIDGE_IN2_REVERSE, LOW) ;
                 digitalWrite(H_BRIDGE_IN1_FORWARD, HIGH) ;
@@ -189,7 +196,8 @@ static void setSpeed( signed int speed )
                 digitalWrite(H_BRIDGE_IN1_FORWARD, LOW) ;
             }
     #if H_BRIDGE_USE_SW_PWM
-            softPwmWrite (H_BRIDGE_ENABLE_GPIO, speed<0?speed*-1:speed) ;
+            speed = speed<0?speed*-1:speed;
+            softPwmWrite (H_BRIDGE_ENABLE_GPIO, speed) ;
     #else
             pwmWrite (H_BRIDGE_ENABLE_GPIO, speed);
     #endif
