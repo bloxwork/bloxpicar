@@ -45,15 +45,23 @@
 #include <wiringPi.h>
 
 #define BLOX_CAR_VERSION "0.0.1"
-#define PWM_RANGE       100
-#define H_BRIDGE_USE_SW_PWM 1
+
+#define SERVO_CONNECTED_TO_RASPI 1
+#define SERVO_GPIO              1   /**< GPIO output to control the Servo */
+
+#define PWM_RANGE               100
+#define H_BRIDGE_USE_SW_PWM     1
 #if H_BRIDGE_USE_SW_PWM
     #define H_BRIDGE_ENABLE_GPIO 4
 #else
+#if defined SERVO_CONNECTED_TO_RASPI
+    #error HW PWM already in use
+#else
     #define H_BRIDGE_ENABLE_GPIO 1
 #endif
-#define H_BRIDGE_IN1_FORWARD 2
-#define H_BRIDGE_IN2_REVERSE 3
+#endif
+#define H_BRIDGE_IN1_FORWARD    2
+#define H_BRIDGE_IN2_REVERSE    3
 
 typedef struct rxmsg_s_
 {
@@ -69,6 +77,7 @@ static void msSleep(int dwSleepMS);
  * @param speed: -100 ... 100 ( minus = reverse )
  */
 static void setSpeed( signed int speed );
+static void setDirection( int iDirection );
 static void socket_communication(void);
 
 
@@ -94,6 +103,13 @@ main( int argc, char *argv[] )
 #else
     pinMode(H_BRIDGE_ENABLE_GPIO, PWM_OUTPUT);
 #endif
+
+    pinMode(SERVO_GPIO, PWM_OUTPUT);
+    pwmWrite(SERVO_GPIO, 0);
+    pwmSetMode(PWM_MODE_MS);
+    pwmSetClock(400);
+    pwmSetRange(1000);
+
     pinMode(H_BRIDGE_IN1_FORWARD, OUTPUT);
     pinMode(H_BRIDGE_IN2_REVERSE, OUTPUT);
 
@@ -155,6 +171,7 @@ static void socket_communication(void)
                         readBuff.len, readBuff.version, readBuff.speed,
                         readBuff.direction);
                 setSpeed( readBuff.speed );
+                setDirection( readBuff.direction );
                 write(connfd, &readBuff, readlen);
             }
 
@@ -204,4 +221,15 @@ static void setSpeed( signed int speed )
             iCurrSpeed = speed;
         }
     }
+}
+
+#define SERVO_MAX 110
+#define SERVO_MIN 40
+
+#define MAX_DIRECTION 100
+#define MIN_DIRECTION -100
+
+static void setDirection( int iDirection )
+{
+    pwmWrite (SERVO_GPIO, iDirection);
 }
