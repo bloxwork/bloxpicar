@@ -43,6 +43,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <wiringPi.h>
+#include <jansson.h>
 
 #define BLOX_CAR_VERSION "0.0.1"
 
@@ -70,6 +71,14 @@ typedef struct rxmsg_s_
     int speed;
     int direction;
 } rxmsg_s;
+
+#define JO_STRING_VERSION "Version"
+#define JO_STRING_DIRECTION "Direction"
+#define JO_STRING_SPEED "Speed"
+static char jsConfig[] =
+        "{\""JO_STRING_VERSION"\" : 1, \""JO_STRING_SPEED"\" : 0, \""JO_STRING_DIRECTION"\" : 0 }";
+static void
+jsonParser( char * rxBuffer, int buffLen,  rxmsg_s * rxmsg );
 
 static void msSleep(int dwSleepMS);
 /**
@@ -137,7 +146,8 @@ static void socket_communication(void)
     struct sockaddr_in serv_addr;
 
     char sendBuff[1025];
-    rxmsg_s readBuff;
+    char readBuff[1025];
+    rxmsg_s rxMsg;
     int readlen = 0;
     time_t ticks;
 
@@ -167,11 +177,12 @@ static void socket_communication(void)
             readlen = recv(connfd, &readBuff, sizeof(readBuff),0);
             if (readlen > 0)
             {
+                jsonParser( &readBuff, readlen, &rxMsg );
                 printf("rx len:%i version:%i speed:%i direction:%i\n",
-                        readBuff.len, readBuff.version, readBuff.speed,
-                        readBuff.direction);
-                setSpeed( readBuff.speed );
-                setDirection( readBuff.direction );
+                        rxMsg.len, rxMsg.version, rxMsg.speed,
+                        rxMsg.direction);
+                setSpeed( rxMsg.speed );
+                setDirection( rxMsg.direction );
                 write(connfd, &readBuff, readlen);
             }
 
@@ -179,6 +190,8 @@ static void socket_communication(void)
             {
                 printf("read error: %i\n", readlen);
                 printf("Socket recv()! %s\n", strerror(errno));
+                setSpeed( 0 );
+                setDirection( 0 );
                 break;
             }
         }
@@ -223,13 +236,91 @@ static void setSpeed( signed int speed )
     }
 }
 
-#define SERVO_MAX 110
-#define SERVO_MIN 40
+#define SERVO_MAX 140
+#define SERVO_MIN 20
 
 #define MAX_DIRECTION 100
 #define MIN_DIRECTION -100
 
 static void setDirection( int iDirection )
 {
-    pwmWrite (SERVO_GPIO, iDirection);
+    printf("New Direction %d ", iDirection);
+
+    iDirection = (iDirection / 2) + 75;
+
+    printf("calculated %d\n", iDirection);
+
+    if((iDirection >= SERVO_MIN) && (iDirection <= SERVO_MAX))
+    {
+        pwmWrite (SERVO_GPIO, iDirection);
+    }
+    else
+    {
+        printf("Direction out of range %d\n", iDirection);
+    }
+}
+
+static void
+jsonParser( char * rxBuffer, int buffLen,  rxmsg_s * rxmsg )
+{
+    json_t *root;
+    json_error_t error;
+
+    root = json_loadb(rxBuffer, buffLen, JSON_DISABLE_EOF_CHECK, &error);
+
+    if (!root)
+    {
+        fprintf(stderr, "error: on line %d: %s\n", error.line, error.text);
+        //return 1;
+    }
+    else
+    {
+        if (!json_is_object(root))
+        {
+            fprintf(stderr, "error: root is not an object\n");
+            json_decref(root);
+        }
+        else
+        {
+            json_t * joVerion;
+            json_t * joSpeed;
+            json_t * joDirection;
+            joVerion = json_object_get(root, "Version");
+            joSpeed = json_object_get(root, "Speed");
+            joDirection = json_object_get(root, "Direction");
+
+            if (!json_is_integer(joVerion))
+            {
+                fprintf(stderr, "error: Version is not a string\n");
+                json_decref(root);
+            }
+            else
+            {
+                rxmsg->version = json_integer_value( joVerion );
+                printf("Version %d\n", rxmsg->version);
+            }
+
+            if (!json_is_integer(joSpeed))
+            {
+                fprintf(stderr, "error: Version is not a string\n");
+                json_decref(root);
+            }
+            else
+            {
+                rxmsg->speed = json_integer_value( joSpeed );
+                printf("Speed %d\n", rxmsg->speed);
+            }
+
+            if (!json_is_integer(joDirection))
+            {
+                fprintf(stderr, "error: Version is not a string\n");
+                json_decref(root);
+            }
+            else
+            {
+                rxmsg->direction = json_integer_value ( joDirection );
+                printf("Direction %d\n", rxmsg->direction);
+            }
+        }
+    }
 }

@@ -212,5 +212,36 @@ wpa_passphrase=raspi-wlan
 ## WiringPi
 pacman -S wiringpi
 
+## JSON > jansson
+for comminucation via the socket connection JSON is used.
+For that the libjansson must be installed:
+pacman -S jansson
+
 ## Debugging
 pacman -S gdb
+
+
+## DevEnv
+
+# update SDK:
+
+    On your host machine you may also have to install rsync
+         sudo aptitude install rsync
+    On the RaspberryPi install rsync:
+         sudo apt-get istall rsync
+    Create a folder on the cross compiling machine. For example, here we call it: ~/bin/RaspberryPi
+        mkdir -p ~/bin/RaspberryPi
+    cd to this folder
+        cd  ~/bin/RaspberryPi
+    and do the following:
+        rsync -rl pi@raspberrypi.bigpond:/lib .
+        rsync -rl pi@raspberrypi.bigpond:/usr .
+        
+# change/adapt shared lib so if compile fails (while configure: configure: error: C compiler cannot create executables)
+e.g libc.so
+/* GNU ld script
+   Use the shared library, but some functions are only in
+   the static library, so try that secondarily.  */
+OUTPUT_FORMAT(elf32-littlearm)
+GROUP ( /home/goblin/proj/dev-raspi/sdk/usr/lib/libc.so.6 /home/goblin/proj/dev-raspi/sdk/usr/lib/libc_nonshared.a  AS_NEEDED ( /home/goblin/proj/dev-raspi/sdk/usr/lib/ld-linux-armhf.so.3 ) )
+

@@ -5,6 +5,8 @@ bloxpicar_LDADD= \
 	-lwiringPi \
 	-lwiringPiDev
 	
+bloxpicar_LDFLAGS= $(JANSSON_LIBS)
+	
 
 MAINTAINERCLEANFILES = \
 	$(srcdir)/aclocal.m4 \
