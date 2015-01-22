@@ -51,16 +51,7 @@
 #define SERVO_GPIO              1   /**< GPIO output to control the Servo */
 
 #define PWM_RANGE               100
-#define H_BRIDGE_USE_SW_PWM     1
-#if H_BRIDGE_USE_SW_PWM
-    #define H_BRIDGE_ENABLE_GPIO 4
-#else
-#if defined SERVO_CONNECTED_TO_RASPI
-    #error HW PWM already in use
-#else
-    #define H_BRIDGE_ENABLE_GPIO 1
-#endif
-#endif
+#define H_BRIDGE_ENABLE_GPIO    4
 #define H_BRIDGE_IN1_FORWARD    2
 #define H_BRIDGE_IN2_REVERSE    3
 
@@ -107,11 +98,9 @@ main( int argc, char *argv[] )
 
     //Setup the wiring PI Lib
     wiringPiSetup();
-#if H_BRIDGE_USE_SW_PWM
+
     softPwmCreate (H_BRIDGE_ENABLE_GPIO, 0, PWM_RANGE) ;
-#else
-    pinMode(H_BRIDGE_ENABLE_GPIO, PWM_OUTPUT);
-#endif
+
 
     pinMode(SERVO_GPIO, PWM_OUTPUT);
     pwmWrite(SERVO_GPIO, 0);
@@ -225,13 +214,16 @@ static void setSpeed( signed int speed )
                 digitalWrite(H_BRIDGE_IN2_REVERSE, LOW) ;
                 digitalWrite(H_BRIDGE_IN1_FORWARD, LOW) ;
             }
-    #if H_BRIDGE_USE_SW_PWM
-            speed = speed<0?speed*-1:speed;
-            softPwmWrite (H_BRIDGE_ENABLE_GPIO, speed) ;
-    #else
-            pwmWrite (H_BRIDGE_ENABLE_GPIO, speed);
-    #endif
             iCurrSpeed = speed;
+
+            if( speed < 0 )
+                {
+                 speed *= -1;
+                }
+
+            //TODO: start hysteresis
+
+                softPwmWrite (H_BRIDGE_ENABLE_GPIO, speed) ;
         }
     }
 }
@@ -246,7 +238,7 @@ static void setDirection( int iDirection )
 {
     printf("New Direction %d ", iDirection);
 
-    iDirection = (iDirection / 2) + 75;
+    iDirection = ((iDirection * (-1)) / 2) + 75;
 
     printf("calculated %d\n", iDirection);
 
