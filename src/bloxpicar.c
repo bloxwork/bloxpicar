@@ -55,6 +55,9 @@
 #define H_BRIDGE_IN1_FORWARD    2
 #define H_BRIDGE_IN2_REVERSE    3
 
+#define SERVO_MAX 140
+#define SERVO_MIN 20
+
 typedef struct rxmsg_s_
 {
     int len;
@@ -74,9 +77,13 @@ jsonParser( char * rxBuffer, int buffLen,  rxmsg_s * rxmsg );
 static void msSleep(int dwSleepMS);
 /**
  * setSpeed
- * @param speed: -100 ... 100 ( minus = reverse )
+ * @param speed: -10 ... 10 ( minus = reverse )
  */
 static void setSpeed( signed int speed );
+/**
+ * setDirection
+ * @param iDirection: -10 ... 10 ( minus = left )
+ */
 static void setDirection( int iDirection );
 static void socket_communication(void);
 
@@ -89,15 +96,29 @@ static void msSleep(int dwSleepMS) {
 
     (void) nanosleep(&sTimeSpec, NULL );
 }
+
+void servoSelfCheck(void)
+{
+	int pwm;
+printf("Servo Selfcheck\n");
+	for(pwm = SERVO_MIN; pwm < SERVO_MAX; pwm++)
+	{
+        	pwmWrite (SERVO_GPIO, pwm);
+		msSleep(500);
+
+	}
+
+}
+
 int
 main( int argc, char *argv[] )
 {
     int i;
     printf("BloxCar: V%s %s %s\n", BLOX_CAR_VERSION, __DATE__, __TIME__);
 
-
     //Setup the wiring PI Lib
     wiringPiSetup();
+    printf("Creating Soft PWM for Servo\n");
 
     softPwmCreate (H_BRIDGE_ENABLE_GPIO, 0, PWM_RANGE) ;
 
@@ -108,9 +129,11 @@ main( int argc, char *argv[] )
     pwmSetClock(400);
     pwmSetRange(1000);
 
+    printf("Configure Pins for Motor Control\n");
     pinMode(H_BRIDGE_IN1_FORWARD, OUTPUT);
     pinMode(H_BRIDGE_IN2_REVERSE, OUTPUT);
 
+//	servoSelfCheck();
     socket_communication();
 
 #if 0
@@ -133,6 +156,7 @@ static void socket_communication(void)
 {
     int listenfd = 0, connfd = 0;
     struct sockaddr_in serv_addr;
+    //struct in_addr inp;
 
     char sendBuff[1025];
     char readBuff[1025];
@@ -140,23 +164,26 @@ static void socket_communication(void)
     int readlen = 0;
     time_t ticks;
 
+    printf("creating socket\n");
     listenfd = socket(AF_INET, SOCK_STREAM, 0);
     memset(&serv_addr, '0', sizeof(serv_addr));
     memset(sendBuff, '0', sizeof(sendBuff));
 
     serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    //serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    serv_addr.sin_addr.s_addr = inet_addr("192.168.1.1");
+//    serv_addr.sin_addr.s_addr = inet_addr("192.168.178.60");
     serv_addr.sin_port = htons(5000);
 
     bind(listenfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
 
     listen(listenfd, 10);
-
+    printf("listening\n");
     while (1)
     {
         connfd = accept(listenfd, (struct sockaddr*) NULL, NULL );
 
-        printf("accepted client");
+        printf("accepted client\n");
         ticks = time(NULL );
         snprintf(sendBuff, sizeof(sendBuff), "%.24s\r\n", ctime(&ticks));
         write(connfd, sendBuff, strlen(sendBuff));
@@ -166,7 +193,7 @@ static void socket_communication(void)
             readlen = recv(connfd, &readBuff, sizeof(readBuff),0);
             if (readlen > 0)
             {
-                jsonParser( &readBuff, readlen, &rxMsg );
+                jsonParser( readBuff, readlen, &rxMsg );
                 printf("rx len:%i version:%i speed:%i direction:%i\n",
                         rxMsg.len, rxMsg.version, rxMsg.speed,
                         rxMsg.direction);
@@ -194,6 +221,8 @@ static void setSpeed( signed int speed )
     static signed int iCurrSpeed = 0;
 
     printf("setSpeed: current:%i new:%i\n", iCurrSpeed, speed);
+
+    speed *=10;
 
     if((speed >= ( PWM_RANGE * -1))&&(speed <= PWM_RANGE))
     {
@@ -228,17 +257,17 @@ static void setSpeed( signed int speed )
     }
 }
 
-#define SERVO_MAX 140
-#define SERVO_MIN 20
 
-#define MAX_DIRECTION 100
-#define MIN_DIRECTION -100
+
+#define MAX_DIRECTION 10
+#define MIN_DIRECTION -10
 
 static void setDirection( int iDirection )
 {
     printf("New Direction %d ", iDirection);
 
-    iDirection = ((iDirection * (-1)) / 2) + 75;
+//??    iDirection = ((iDirection * (-1)) / 2) + 75;
+    iDirection = ((iDirection + 10 ) * 6) + 20;
 
     printf("calculated %d\n", iDirection);
 
