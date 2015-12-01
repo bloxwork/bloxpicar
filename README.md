@@ -5,4 +5,8 @@ Features:
 - Raspi controled by android
 - Raspi acts as wlan ap
 
+
+## Build
+autoreconf -vfi
+./configure $CONFIGURE_FLAGS
 --
